@@ -10,6 +10,7 @@ import reactor.netty.tcp.TcpServer;
 public class IsoServer {
 
     public void startServer(String host, int port, ISOPackager packager) {
+        System.out.println("Starting IsoServer");
         Thread thread = new Thread(() -> {
             TcpServer.create()
                     .host(host)
@@ -27,12 +28,13 @@ public class IsoServer {
                                         var request = new ISOMsg();
                                         request.setPackager(packager);
                                         request.unpack(msg); // Unpack the received message using the packager
-                                        request.dump(System.out, "Request"); // Debug the unpacked message
+                                        request.dump(System.out, "Request in"); // Debug the unpacked message
 
                                         // Prepare response
                                         var response = (ISOMsg) request.clone();
                                         response.setResponseMTI(); // Set response MTI (Message Type Indicator)
-                                        response.dump(System.out, "Response");
+                                        response.set(39, "800");
+                                        response.dump(System.out, "Response out");
 
                                         // Send back the response
                                         byte[] responseBytes = response.pack();
@@ -51,7 +53,6 @@ public class IsoServer {
                     .block(); // Block the main thread to keep the server alive
         });
         thread.start();
+        System.out.println("Started IsoServer");
     }
-
-
 }
