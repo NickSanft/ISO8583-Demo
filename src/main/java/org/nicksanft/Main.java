@@ -1,41 +1,31 @@
 package org.nicksanft;
 
+import org.jpos.iso.ISOException;
+import org.jpos.iso.ISOMsg;
+import org.jpos.iso.ISOPackager;
+import org.jpos.iso.ISOUtil;
+import org.jpos.iso.packager.ISO93APackager;
 import reactor.core.publisher.Mono;
 import reactor.netty.tcp.TcpClient;
-import reactor.netty.tcp.TcpServer;
 
 public class Main {
 
     private static String host = "localhost";
     private static int port = 8080;
+    private static ISOPackager packager = new ISO93APackager();
 
-    // Method to start a simple TCP server using Reactor
-    private static void startServer() {
-        TcpServer.create()
-                .host(host)
-                .port(port)
-                .handle((inbound, outbound) -> {
-                    // Log the received message from the client
-                    inbound.receive()
-                            .asString()
-                            .doOnNext(msg -> System.out.println("Server received: " + msg)) // Log the received message
-                            .subscribe(); // Ensure subscription to process the incoming message
-
-                    // Send a response back to the client
-                    return outbound.sendString(Mono.just("goodbye\n")).then();
-                })
-                .bindNow()
-                .onDispose() // Ensure we block the thread until server shuts down
-                .block(); // Block the main thread to keep the server alive
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-
-        // Start the server in a separate thread
-        new Thread(Main::startServer).start();
+    public static void main(String[] args) throws InterruptedException, ISOException {
+        var server = new IsoServer();
+        server.startServer(host, port, packager);
 
         // Allow the server time to start up
-        Thread.sleep(1000);
+        Thread.sleep(2000);
+
+        // Create the request message
+        var request = new ISOMsg("1800");
+        request.set(2, "599999999");
+        request.setPackager(packager);
+        var requestBytes = request.pack();
 
         // Start the client
         System.out.println("Starting client");
@@ -44,16 +34,16 @@ public class Main {
                 .port(port)
                 .handle((inbound, outbound) -> {
                     // Send a message to the server
-                    outbound.sendString(Mono.just("hello"));
-
-                    // Receive the response from the server
-                    return inbound.receive()
-                            .asString()
-                            .doOnNext(msg -> {
-                                // Ensure we print the received message
-                                System.out.println("Client received: " + msg);
-                            })
-                            .then(); // Ensure the flow completes after receiving the message
+                    System.out.println("Sending: " + ISOUtil.byte2hex(requestBytes)); // Log the outgoing message
+                    return outbound.sendByteArray(Mono.just(requestBytes)) // Send the request message
+                            .then() // Wait for the message to be fully sent
+                            .then(inbound.receive() // Now wait for the response from the server
+                                    .asByteArray()
+                                    .doOnNext(msg -> {
+                                        // Ensure we print the received message
+                                        System.out.println("Client received: " + ISOUtil.byte2hex(msg)); // Log the incoming response in hex
+                                    })
+                                    .then()); // Complete the flow after receiving the message
                 })
                 .connect()
                 .block(); // Block until the client completes the communication
@@ -61,4 +51,6 @@ public class Main {
         // This line will be printed after the communication completes
         System.out.println("Client communication completed.");
     }
+
+
 }
