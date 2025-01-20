@@ -33,7 +33,16 @@ public class IsoServer {
                                         // Prepare response
                                         var response = (ISOMsg) request.clone();
                                         response.setResponseMTI(); // Set response MTI (Message Type Indicator)
-                                        response.set(39, "800");
+
+                                        var requestMti = request.getMTI();
+
+                                        // 800 for Network Statuses, 000 and an approval code for everyone else.
+                                        if (requestMti.startsWith("08") || requestMti.startsWith("18")) {
+                                            response.set(39, "800");
+                                        } else {
+                                            response.set(38, IsoMsgTemplates.rand6digitString());
+                                            response.set(39, "000");
+                                        }
                                         response.dump(System.out, "Response out");
 
                                         // Send back the response
