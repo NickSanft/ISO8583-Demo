@@ -8,7 +8,7 @@ import reactor.netty.tcp.TcpClient;
 
 public class IsoClient {
 
-    public void startClient(String host, int port, ISOPackager packager, ISOMsg request) {
+    public void startClientAndSend(String host, int port, ISOPackager packager, ISOMsg request) {
         // Start the client
         System.out.println("Starting client");
         TcpClient.create()
